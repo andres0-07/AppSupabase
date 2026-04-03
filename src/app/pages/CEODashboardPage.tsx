@@ -13,7 +13,7 @@ import { StatCard } from '../components/dashboard/StatCard';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   createTask, deleteTask, fetchAllProfiles, fetchAllTasks,
-  fetchEvidenceForProfile, reviewEvidence, sendCeoComment, updateTask,
+  fetchEvidenceForProfile, forceUnlockTask, reviewEvidence, sendCeoComment, updateTask,
 } from '../../services/taskService';
 import type { Evidence, Profile, Task, TaskPriority, TaskStatus } from '../../types';
 
