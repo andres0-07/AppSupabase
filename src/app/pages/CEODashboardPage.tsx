@@ -251,6 +251,16 @@ export function CEODashboardPage() {
     }
   }
 
+  async function handleForceUnlock(taskId) {
+    setBusyId(taskId);
+    try {
+      await forceUnlockTask(taskId);
+      await loadData();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return;
     setBusyId(deleteTarget.id);
