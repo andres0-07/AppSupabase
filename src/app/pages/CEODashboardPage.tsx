@@ -495,6 +495,16 @@ export function CEODashboardPage() {
                         <div className="flex items-center gap-2">
                           <button onClick={() => openEdit(task)} className="rounded-lg border border-slate-700 p-1.5 text-slate-400 hover:border-cyan-500 hover:text-cyan-400" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
                           <button onClick={() => { setCommentTarget(task); setCommentText(task.ceo_comment ?? ''); }} className="rounded-lg border border-slate-700 p-1.5 text-slate-400 hover:border-amber-500 hover:text-amber-400" title="Aviso"><MessageSquare className="h-3.5 w-3.5" /></button>
+                          {locked && (
+                            <button
+                              disabled={busyId === task.id}
+                              onClick={() => handleForceUnlock(task.id)}
+                              className="rounded-lg border border-violet-500/40 p-1.5 text-violet-400 hover:bg-violet-500/10 disabled:opacity-50"
+                              title="Forzar desbloqueo"
+                            >
+                              <Zap className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           <button onClick={() => { setDeleteTarget(task); setReleaseChildren(true); }} className="rounded-lg border border-slate-700 p-1.5 text-slate-400 hover:border-red-500 hover:text-red-400" title="Eliminar"><Trash2 className="h-3.5 w-3.5" /></button>
                         </div>
                       </td>
