@@ -1,4 +1,4 @@
-﻿  import { useEffect, useMemo, useState } from 'react';
+﻿  import { useEffect, useMemo, useRef, useState } from 'react';
   import {
     AlertTriangle, CheckCircle2, Clock3, FileWarning,
     Lock, Plus, Pencil, Trash2, Users, X, MessageSquare,
@@ -76,6 +76,7 @@
     const [evidence, setEvidence] = useState<Evidence[]>([]);
     const [loading, setLoading]   = useState(true);
     const [busyId, setBusyId]     = useState<string | null>(null);
+  const mountedRef = useRef(true);
     const [error, setError]       = useState('');
 
     // Vista activa
@@ -121,7 +122,7 @@
       }
     }
 
-    useEffect(() => { loadData(); }, [profile?.id]);
+    useEffect(() => { mountedRef.current = true; loadData(); return () => { mountedRef.current = false; }; }, [profile?.id]);
 
     // ─── Métricas ────────────────────────────────────────────────────────────────
 
