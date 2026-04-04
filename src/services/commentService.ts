@@ -7,7 +7,16 @@ export interface TaskComment {
   comment: string;
   is_support: boolean;
   created_at?: string;
-  author_name?: string;
+}
+
+export interface TaskEvidence {
+  id: string;
+  task_id: string;
+  file_url: string;
+  file_type: string;
+  status: string;
+  uploaded_by: string;
+  created_at?: string;
 }
 
 export async function fetchCommentsForTask(taskId: string): Promise<TaskComment[]> {
@@ -35,6 +44,16 @@ export async function addTaskComment(params: {
       is_support: params.isSupport ?? false,
     });
   if (error) throw error;
+}
+
+export async function fetchEvidenceForTask(taskId: string): Promise<TaskEvidence[]> {
+  const { data, error } = await supabase
+    .from('evidence')
+    .select('id, task_id, file_url, file_type, status, uploaded_by, created_at')
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function fetchAllTasksWithTeam(): Promise<any[]> {

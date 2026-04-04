@@ -13,9 +13,10 @@ import {
 import { uploadEvidenceFile } from '../../services/evidenceService';
 import { fetchAnnouncements } from '../../services/financeService';
 import {
-  fetchCommentsForTask, addTaskComment, fetchAllTasksWithTeam,
+  fetchCommentsForTask, addTaskComment, fetchAllTasksWithTeam, fetchEvidenceForTask,
   type TaskComment,
 } from '../../services/commentService';
+import { supabase } from '../../lib/supabase';
 import type { Announcement, Evidence, EvidenceFileType, Profile, Task } from '../../types';
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
@@ -71,6 +72,8 @@ function getNodeStyle(task: Task, lockState: LockState) {
   if (task.status === 'in_progress') return { ring: 'border-cyan-500 bg-cyan-500/10', icon: <Zap className="h-6 w-6 text-cyan-400" />, label: 'text-cyan-400', lockBadge: null };
   return { ring: 'border-slate-600 bg-slate-900', icon: <Circle className="h-6 w-6 text-slate-400" />, label: 'text-slate-300', lockBadge: null };
 }
+
+function EvidenceViewer({ taskId }: { taskId: string }) {  const [items, setItems] = useState<import('../../services/commentService').TaskEvidence[]>([]);  const [urls, setUrls]   = useState<Record<string, string>>({});  const [loading, setLoading] = useState(true);  useEffect(() => {    fetchEvidenceForTask(taskId)      .then(setItems)      .finally(() => setLoading(false));  }, [taskId]);  async function handleOpen(item: import('../../services/commentService').TaskEvidence) {    if (urls[item.id]) { window.open(urls[item.id], '_blank'); return; }    try {      const { data, error } = await supabase.storage        .from('evidence')        .createSignedUrl(item.file_url, 60 * 30);      if (error) throw error;      setUrls((prev) => ({ ...prev, [item.id]: data.signedUrl }));      window.open(data.signedUrl, '_blank');    } catch {      alert('No se pudo abrir el archivo.');    }  }  if (loading) return <p className="text-xs text-slate-500 mb-3">Cargando evidencias...</p>;  if (items.length === 0) return <p className="text-xs text-slate-500 mb-3">Sin evidencias subidas.</p>;  return (    <div className="mb-4 rounded-xl border border-slate-700 bg-slate-950/50 p-3 space-y-2">      <p className="text-xs font-medium text-slate-400">📎 Evidencias</p>      {items.map((item) => (        <button          key={item.id}          onClick={() => handleOpen(item)}          className="flex w-full items-center justify-between rounded-lg border border-slate-700 px-3 py-2 text-xs hover:border-cyan-500 hover:text-cyan-300 transition-colors"        >          <span>{item.file_type.toUpperCase()} — {item.status === 'approved' ? '✅' : item.status === 'rejected' ? '❌' : '⏳'} {item.status}</span>          <span className="text-slate-500">Abrir →</span>        </button>      ))}    </div>  );}
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
@@ -499,6 +502,77 @@ export function LeaderDashboardPage() {
         </div>
       )}
 
+      {/* MODAL: TAREA DEL EQUIPO */}
+      {selectedTeamTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-bold text-white mb-2 ${STATUS_COLOR[selectedTeamTask.status]}`}>
+                  {STATUS_LABEL[selectedTeamTask.status]}
+                </span>
+                <h3 className="text-xl font-bold text-white">{selectedTeamTask.title}</h3>
+              </div>
+              <button onClick={() => setSelectedTeamTask(null)} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+
+            {selectedTeamTask.description && (  <p className="text-sm text-slate-300 mb-3">{selectedTeamTask.description}</p>)}{selectedTeamTask.due_date && (  <p className="text-xs text-slate-500 mb-3">📅 {new Date(selectedTeamTask.due_date).toLocaleDateString('es-CO')}</p>)}{/* Evidencias del compañero */}<EvidenceViewer taskId={selectedTeamTask.id} />
+
+            <div className="border-t border-slate-800 pt-4">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" /> Comentarios
+                </h4>
+                <button
+                  disabled={savingComment}
+                  onClick={() => handleAddComment(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-pink-500/30 bg-pink-500/5 px-3 py-1 text-xs text-pink-400 hover:bg-pink-500/10"
+                >
+                  <Heart className="h-3.5 w-3.5" /> Apoyar
+                </button>
+              </div>
+
+              <div className="space-y-3 mb-4 max-h-48 overflow-y-auto pr-2">
+                {comments.length === 0 ? (
+                  <p className="text-xs text-slate-600 text-center py-4 italic">Nadie ha comentado aún. ¡Sé el primero!</p>
+                ) : (
+                  comments.map((c) => {
+                    const author = team.find(m => m.id === c.author_id);
+                    return (
+                      <div key={c.id} className={`rounded-xl p-3 ${c.is_support ? 'bg-pink-500/5 border border-pink-500/10' : 'bg-slate-800/50'}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">{author?.full_name ?? 'Usuario'}</span>
+                          <span className="text-[10px] text-slate-600">{new Date(c.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <p className={`text-xs ${c.is_support ? 'text-pink-300 font-medium' : 'text-slate-300'}`}>{c.comment}</p>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Escribe un mensaje de apoyo..."
+                  className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddComment(false)}
+                />
+                <button
+                  disabled={savingComment || !newComment.trim()}
+                  onClick={() => handleAddComment(false)}
+                  className="rounded-xl bg-cyan-500 p-2 text-slate-950 hover:bg-cyan-400 disabled:opacity-50"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: COMPLETAR */}
       {completingTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
@@ -506,66 +580,16 @@ export function LeaderDashboardPage() {
             <h3 className="text-lg font-semibold text-emerald-400">¿Cómo te fue?</h3>
             <p className="mt-1 text-sm text-slate-400">{completingTask.title}</p>
             <p className="mt-2 text-xs text-slate-500">Quedará en "Esperando visto bueno del CEO" hasta ser aprobada.</p>
-            <textarea className="mt-4 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500" rows={4} value={completionComment} onChange={(e) => setCompletionComment(e.target.value)} placeholder="Opcional: cuenta qué hiciste, qué aprendiste o si hubo algo inesperado..." />
-            <div className="mt-4 flex justify-end gap-3">
-              <button onClick={() => setCompletingTask(null)} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Cancelar</button>
-              <button onClick={confirmComplete} disabled={busyId === completingTask.id} className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:opacity-50">{busyId === completingTask.id ? 'Guardando...' : '✓ Marcar lista'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: TAREA DEL EQUIPO */}
-      {selectedTeamTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-white">{selectedTeamTask.title}</h3>
-                <p className="text-sm text-slate-400 mt-0.5">{team.find((m) => m.id === selectedTeamTask.assigned_to)?.full_name} · {STATUS_LABEL[selectedTeamTask.status]}</p>
-              </div>
-              <button onClick={() => setSelectedTeamTask(null)} className="text-slate-400 hover:text-white shrink-0">✕</button>
-            </div>
-
-            {selectedTeamTask.description && <p className="text-sm text-slate-300 mb-4">{selectedTeamTask.description}</p>}
-            {selectedTeamTask.due_date && <p className="text-xs text-slate-500 mb-4">📅 Fecha límite: {new Date(selectedTeamTask.due_date).toLocaleDateString('es-CO')}</p>}
-
-            {/* Botón apoyar */}
-            {selectedTeamTask.assigned_to !== profile?.id && (
-              <button
-                onClick={() => handleAddComment(true)}
-                disabled={savingComment}
-                className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-500/40 px-4 py-2 text-sm text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50"
-              >
-                <Heart className="h-4 w-4" /> Apoyé esta tarea
-              </button>
-            )}
-
-            {/* Comentarios */}
-            <div className="space-y-3 mb-4 max-h-48 overflow-y-auto">
-              {comments.length === 0 ? <p className="text-xs text-slate-500">Sin comentarios aún.</p> : comments.map((c) => {
-                const author = team.find((m) => m.id === c.author_id);
-                return (
-                  <div key={c.id} className={`rounded-xl p-3 ${c.is_support ? 'border border-emerald-500/20 bg-emerald-500/5' : 'border border-slate-700 bg-slate-950/50'}`}>
-                    <p className="text-xs font-medium text-slate-300">{author?.full_name ?? 'Usuario'}</p>
-                    <p className={`text-sm mt-0.5 ${c.is_support ? 'text-emerald-400' : 'text-slate-300'}`}>{c.comment}</p>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Nuevo comentario */}
-            <div className="flex gap-2">
-              <input
-                className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Escribe un comentario..."
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAddComment(false); }}
-              />
-              <button onClick={() => handleAddComment(false)} disabled={!newComment.trim() || savingComment} className="rounded-xl bg-cyan-500 px-3 py-2 text-slate-950 hover:bg-cyan-400 disabled:opacity-50">
-                <Send className="h-4 w-4" />
-              </button>
+            <textarea
+              className="mt-4 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white focus:border-emerald-500 focus:outline-none"
+              placeholder="Ej: Ya envié el reporte por correo..."
+              rows={3}
+              value={completionComment}
+              onChange={(e) => setCompletionComment(e.target.value)}
+            />
+            <div className="mt-6 flex gap-3">
+              <button onClick={() => setCompletingTask(null)} className="flex-1 rounded-xl border border-slate-700 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800">Cancelar</button>
+              <button onClick={confirmComplete} className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-sm font-medium text-slate-950 hover:bg-emerald-400">Confirmar</button>
             </div>
           </div>
         </div>
