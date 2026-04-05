@@ -1,0 +1,6 @@
+﻿import { supabase } from '../lib/supabase';
+export interface WeeklyGoal { id: string; week_label: string; content: string; assigned_to: string | null; created_by: string | null; created_at?: string; }
+export async function fetchMyWeeklyGoals(userId: string): Promise<WeeklyGoal[]> { const { data, error } = await supabase.from('weekly_goals').select('*').or('assigned_to.eq.' + userId + ',assigned_to.is.null').order('created_at', { ascending: false }); if (error) throw error; return data ?? []; }
+export async function fetchAllWeeklyGoals(): Promise<WeeklyGoal[]> { const { data, error } = await supabase.from('weekly_goals').select('*').order('created_at', { ascending: false }); if (error) throw error; return data ?? []; }
+export async function createWeeklyGoal(params: { weekLabel: string; content: string; assignedTo: string | null; createdBy: string; }): Promise<void> { const { error } = await supabase.from('weekly_goals').insert({ week_label: params.weekLabel, content: params.content, assigned_to: params.assignedTo, created_by: params.createdBy }); if (error) throw error; }
+export async function deleteWeeklyGoal(id: string): Promise<void> { const { error } = await supabase.from('weekly_goals').delete().eq('id', id); if (error) throw error; }
